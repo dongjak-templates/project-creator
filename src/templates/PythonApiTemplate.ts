@@ -163,7 +163,7 @@ export class PythonApiTemplate extends BaseTemplate {
     await this.configureProject(targetDir, projectName, params);
     
     // 创建README.md
-    await this.createReadme(targetDir, projectName, params);
+    //await this.createReadme(targetDir, projectName, params);
     
     // 渲染所有模板文件
     console.log('正在渲染模板文件...');

@@ -19,3 +19,15 @@ graph TD
     E --> F[初始化模板]
     F --> G[完成]
 ```
+
+## 构建
+
+```sh
+pnpm run build
+```
+
+## 发布
+
+```sh
+pnpm publish
+```
