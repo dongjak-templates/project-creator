@@ -165,6 +165,20 @@ export class PythonApiTemplate extends BaseTemplate {
     // 创建README.md
     await this.createReadme(targetDir, projectName, params);
     
+    // 渲染所有模板文件
+    console.log('正在渲染模板文件...');
+    await super.renderTemplateFiles(targetDir, {
+      projectName,
+      ...params,
+      // 添加一些额外的上下文变量，方便在模板中使用
+      hasOrm: orm,
+      hasWebFramework: web_framework,
+      isFlask: web_framework && web_framework_choice === 'flask',
+      isFastApi: web_framework && web_framework_choice === 'fastapi',
+      hasSqlModel: orm && orm_framework === 'sqlmodel',
+      hasAlembic: orm && use_alembic
+    });
+    
     console.log('项目初始化完成');
   }
   

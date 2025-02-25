@@ -63,8 +63,17 @@ export async function createProject(projectName: string): Promise<void> {
   // 收集模板特定的参数
   const templateParams = await selectedTemplate.getParameters();
   
+  // 添加项目名称到参数中
+  const allParams = {
+    projectName,
+    ...templateParams
+  };
+  
+  console.log(chalk.blue('正在初始化模板...'));
+  console.log(chalk.gray('模板文件将使用Handlebars进行渲染，可以在文件中使用 {{变量名}} 语法'));
+  
   // 初始化模板
-  await selectedTemplate.initialize(targetDir, projectName, templateParams);
+  await selectedTemplate.initialize(targetDir, projectName, allParams);
   
   // 进入项目目录
   process.chdir(targetDir);

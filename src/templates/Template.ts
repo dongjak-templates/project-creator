@@ -1,6 +1,10 @@
 /**
  * 模板参数类型
  */
+import fs from 'fs-extra';
+import path from 'path';
+import Handlebars from 'handlebars';
+
 export type TemplateParams = Record<string, any>;
 
 /**
@@ -68,4 +72,40 @@ export abstract class BaseTemplate implements Template {
    * 初始化模板（需要子类实现）
    */
   abstract initialize(targetDir: string, projectName: string, params: TemplateParams): Promise<void>;
+  
+  /**
+   * 渲染目录中的所有模板文件
+   * @param dir 目标目录
+   * @param context 模板上下文
+   */
+  protected async renderTemplateFiles(dir: string, context: TemplateParams): Promise<void> {
+    const files = await fs.readdir(dir);
+    
+    for (const file of files) {
+      const filePath = path.join(dir, file);
+      const stats = await fs.stat(filePath);
+      
+      if (stats.isDirectory()) {
+        // 递归处理子目录
+        await this.renderTemplateFiles(filePath, context);
+      } else if (stats.isFile()) {
+        try {
+          // 读取文件内容
+          const content = await fs.readFile(filePath, 'utf8');
+          
+          // 使用Handlebars渲染模板
+          const template = Handlebars.compile(content);
+          const renderedContent = template(context);
+          
+          // 如果内容有变化，则写回文件
+          if (content !== renderedContent) {
+            await fs.writeFile(filePath, renderedContent, 'utf8');
+            console.log(`已渲染模板文件: ${filePath}`);
+          }
+        } catch (error) {
+          console.warn(`渲染文件 ${filePath} 时出错: ${error}`);
+        }
+      }
+    }
+  }
 }
