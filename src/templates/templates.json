@@ -1,0 +1,13 @@
+{
+  "python-api": {
+    "conditions": [
+      {
+        "web_framework": "fastapi",
+        "orm": true,
+        "orm_framework": "sqlmodel",
+        "repo": "https://github.com/dongjak-templates/py-api-template.git"
+      }
+    ],
+    "default": "https://github.com/dongjak-templates/py-api-template.git"
+  }
+}
