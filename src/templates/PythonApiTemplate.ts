@@ -14,6 +14,8 @@ interface PythonApiTemplateParams extends TemplateParams {
   web_framework: boolean;
   web_framework_choice?: 'flask' | 'fastapi';
   use_alembic?: boolean;
+  includeAliSms?: boolean;
+  includeAliOss?: boolean;
 }
 
 /**
@@ -106,12 +108,34 @@ export class PythonApiTemplate extends BaseTemplate {
       use_alembic = alembicAnswer.use_alembic;
     }
     
+    // 是否包含阿里云短信服务
+    const { includeAliSms } = await inquirer.prompt<{ includeAliSms: boolean }>([
+      {
+        type: 'confirm',
+        name: 'includeAliSms',
+        message: '是否包含阿里云短信服务?',
+        default: false
+      }
+    ]);
+    
+    // 是否包含阿里云对象存储服务
+    const { includeAliOss } = await inquirer.prompt<{ includeAliOss: boolean }>([
+      {
+        type: 'confirm',
+        name: 'includeAliOss',
+        message: '是否包含阿里云对象存储服务?',
+        default: false
+      }
+    ]);
+    
     return {
       orm,
       orm_framework,
       web_framework,
       web_framework_choice,
-      use_alembic
+      use_alembic,
+      includeAliSms,
+      includeAliOss
     };
   }
   
@@ -140,7 +164,7 @@ export class PythonApiTemplate extends BaseTemplate {
    * 初始化Python API模板
    */
   async initialize(targetDir: string, projectName: string, params: PythonApiTemplateParams): Promise<void> {
-    const { orm, orm_framework, web_framework, web_framework_choice, use_alembic } = params;
+    const { orm, orm_framework, web_framework, web_framework_choice, use_alembic, includeAliSms, includeAliOss } = params;
     
     // 获取模板仓库地址
     const templateRepo = this.getTemplateRepo(params);
@@ -162,9 +186,6 @@ export class PythonApiTemplate extends BaseTemplate {
     // 根据参数配置项目
     await this.configureProject(targetDir, projectName, params);
     
-    // 创建README.md
-    //await this.createReadme(targetDir, projectName, params);
-    
     // 渲染所有模板文件
     console.log('正在渲染模板文件...');
     await super.renderTemplateFiles(targetDir, {
@@ -176,8 +197,13 @@ export class PythonApiTemplate extends BaseTemplate {
       isFlask: web_framework && web_framework_choice === 'flask',
       isFastApi: web_framework && web_framework_choice === 'fastapi',
       hasSqlModel: orm && orm_framework === 'sqlmodel',
-      hasAlembic: orm && use_alembic
+      hasAlembic: orm && use_alembic,
+      hasAliSms: includeAliSms,
+      hasAliOss: includeAliOss
     });
+    
+    // 应用补丁
+    await this.applyPatches(targetDir, params);
     
     console.log('项目初始化完成');
   }
@@ -207,7 +233,7 @@ export class PythonApiTemplate extends BaseTemplate {
    * 根据参数配置项目
    */
   private async configureProject(targetDir: string, projectName: string, params: PythonApiTemplateParams): Promise<void> {
-    const { orm, orm_framework, web_framework, web_framework_choice, use_alembic } = params;
+    const { orm, orm_framework, web_framework, web_framework_choice, use_alembic, includeAliSms, includeAliOss } = params;
     
     // 如果不使用ORM，移除相关文件
     if (!orm) {
@@ -237,6 +263,24 @@ export class PythonApiTemplate extends BaseTemplate {
       }
     }
     
+    // 如果不包含阿里云短信服务，移除相关文件
+    if (!includeAliSms) {
+      const aliSmsDir = path.join(targetDir, 'app', 'services', 'ali_sms');
+      
+      if (await fs.pathExists(aliSmsDir)) {
+        await fs.remove(aliSmsDir);
+      }
+    }
+    
+    // 如果不包含阿里云对象存储服务，移除相关文件
+    if (!includeAliOss) {
+      const aliOssDir = path.join(targetDir, 'app', 'services', 'ali_oss');
+      
+      if (await fs.pathExists(aliOssDir)) {
+        await fs.remove(aliOssDir);
+      }
+    }
+    
     // 更新requirements.txt
     await this.updateRequirements(targetDir, params);
   }
@@ -245,7 +289,7 @@ export class PythonApiTemplate extends BaseTemplate {
    * 更新requirements.txt
    */
   private async updateRequirements(targetDir: string, params: PythonApiTemplateParams): Promise<void> {
-    const { orm, orm_framework, web_framework, web_framework_choice, use_alembic } = params;
+    const { orm, orm_framework, web_framework, web_framework_choice, use_alembic, includeAliSms, includeAliOss } = params;
     const requirementsPath = path.join(targetDir, 'requirements.txt');
     
     if (await fs.pathExists(requirementsPath)) {
@@ -274,6 +318,14 @@ export class PythonApiTemplate extends BaseTemplate {
           continue;
         }
         
+        if (!includeAliSms && line.includes('aliyun-python-sdk-core')) {
+          continue;
+        }
+        
+        if (!includeAliOss && line.includes('oss2')) {
+          continue;
+        }
+        
         newLines.push(line);
       }
       
@@ -281,96 +333,67 @@ export class PythonApiTemplate extends BaseTemplate {
     }
   }
   
+  
   /**
-   * 创建README.md
+   * 应用补丁
    */
-  private async createReadme(targetDir: string, projectName: string, params: PythonApiTemplateParams): Promise<void> {
-    const { orm, orm_framework, web_framework, web_framework_choice, use_alembic } = params;
+  private async applyPatches(targetDir: string, params: PythonApiTemplateParams): Promise<void> {
+    const { includeAliSms, includeAliOss } = params;
+    const patchesDir = path.join(targetDir, '.patches');
     
-    const readmeContent = `# ${projectName}
-
-这个项目是使用 [cruldra-create-project](https://github.com/cruldra/create-project) 创建的Python API项目。
-
-## 技术栈
-
-${web_framework ? `- Web框架: ${web_framework_choice === 'fastapi' ? 'FastAPI' : 'Flask'}` : '- 无Web框架'}
-${orm ? `- ORM框架: ${orm_framework === 'sqlmodel' ? 'SQLModel' : ''}` : '- 无ORM框架'}
-${orm && use_alembic ? '- 数据库迁移: Alembic' : ''}
-
-## 开始使用
-
-### 创建虚拟环境
-
-\`\`\`bash
-python -m venv venv
-\`\`\`
-
-### 激活虚拟环境
-
-Windows:
-\`\`\`bash
-venv\\Scripts\\activate
-\`\`\`
-
-Linux/macOS:
-\`\`\`bash
-source venv/bin/activate
-\`\`\`
-
-### 安装依赖
-
-\`\`\`bash
-pip install -r requirements.txt
-\`\`\`
-
-### 运行项目
-
-\`\`\`bash
-${web_framework_choice === 'fastapi' ? 'uvicorn app.main:app --reload' : 'python app/main.py'}
-\`\`\`
-
-${orm && use_alembic ? `### 数据库迁移
-
-初始化迁移:
-\`\`\`bash
-alembic init alembic
-\`\`\`
-
-创建迁移:
-\`\`\`bash
-alembic revision --autogenerate -m "描述"
-\`\`\`
-
-应用迁移:
-\`\`\`bash
-alembic upgrade head
-\`\`\`
-` : ''}
-
-## 项目结构
-
-\`\`\`
-${projectName}/
-├── app/                    # 应用代码
-│   ├── __init__.py
-│   ├── main.py             # 入口文件
-${web_framework ? `│   ├── api/               # API路由
-│   │   └── __init__.py` : ''}
-${orm ? `│   ├── models/            # 数据模型
-│   │   └── __init__.py
-│   ├── db/                # 数据库配置
-│   │   └── __init__.py` : ''}
-│   └── config.py          # 配置文件
-├── tests/                 # 测试代码
-│   └── __init__.py
-${use_alembic ? `├── alembic/               # Alembic迁移
-├── alembic.ini` : ''}
-├── requirements.txt       # 项目依赖
-├── .gitignore
-└── README.md
-\`\`\`
-`;
+    // 检查补丁目录是否存在
+    if (!await fs.pathExists(patchesDir)) {
+      console.log('没有找到补丁目录，跳过应用补丁步骤');
+      return;
+    }
     
-    await fs.writeFile(path.join(targetDir, 'README.md'), readmeContent);
+    // 初始化Git仓库以便应用补丁
+    try {
+      process.chdir(targetDir);
+      execSync('git init', { stdio: 'ignore' });
+      execSync('git add .', { stdio: 'ignore' });
+      execSync('git commit -m "Initial commit before applying patches"', { stdio: 'ignore' });
+    } catch (error) {
+      console.warn(`初始化Git仓库失败，无法应用补丁: ${error}`);
+      return;
+    }
+    
+    // 应用阿里云短信服务补丁
+    if (includeAliSms) {
+      const aliSmsPatch = path.join(patchesDir, 'includeAliSms.patch');
+      if (await fs.pathExists(aliSmsPatch)) {
+        console.log('正在应用阿里云短信服务补丁...');
+        try {
+          execSync(`git apply ${aliSmsPatch}`, { stdio: 'inherit' });
+          console.log('阿里云短信服务补丁应用成功');
+        } catch (error) {
+          console.error(`应用阿里云短信服务补丁失败: ${error}`);
+        }
+      } else {
+        console.warn('未找到阿里云短信服务补丁文件');
+      }
+    }
+    
+    // 应用阿里云对象存储服务补丁
+    if (includeAliOss) {
+      const aliOssPatch = path.join(patchesDir, 'includeAliOss.patch');
+      if (await fs.pathExists(aliOssPatch)) {
+        console.log('正在应用阿里云对象存储服务补丁...');
+        try {
+          execSync(`git apply ${aliOssPatch}`, { stdio: 'inherit' });
+          console.log('阿里云对象存储服务补丁应用成功');
+        } catch (error) {
+          console.error(`应用阿里云对象存储服务补丁失败: ${error}`);
+        }
+      } else {
+        console.warn('未找到阿里云对象存储服务补丁文件');
+      }
+    }
+    
+    // 删除.patches目录
+    await fs.remove(patchesDir);
+    
+    // 删除.git目录
+    await fs.remove(path.join(targetDir, '.git'));
   }
 }
