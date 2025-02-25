@@ -1,0 +1,38 @@
+{
+  "name": "cruldra-create-project",
+  "version": "1.0.0",
+  "description": "快速生成不同类型的项目骨架",
+  "type": "module",
+  "main": "dist/index.js",
+  "bin": {
+    "cruldra-create-project": "./dist/index.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "dev": "ts-node --esm src/index.ts",
+    "start": "node dist/index.js",
+    "prepublishOnly": "npm run build",
+    "compile": "tsc --noEmit"
+  },
+  "keywords": [
+    "cli",
+    "project",
+    "template",
+    "scaffold"
+  ],
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "@types/fs-extra": "^11.0.4",
+    "@types/inquirer": "^9.0.7",
+    "@types/node": "^22.13.5",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.7.3"
+  },
+  "dependencies": {
+    "chalk": "^5.4.1",
+    "commander": "^13.1.0",
+    "fs-extra": "^11.3.0",
+    "inquirer": "^12.4.2"
+  }
+}
