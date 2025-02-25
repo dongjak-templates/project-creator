@@ -108,25 +108,22 @@ export class PythonApiTemplate extends BaseTemplate {
       use_alembic = alembicAnswer.use_alembic;
     }
     
-    // 是否包含阿里云短信服务
-    const { includeAliSms } = await inquirer.prompt<{ includeAliSms: boolean }>([
+    // 选择云服务
+    const { cloudServices } = await inquirer.prompt<{ cloudServices: string[] }>([
       {
-        type: 'confirm',
-        name: 'includeAliSms',
-        message: '是否包含阿里云短信服务?',
-        default: false
+        type: 'checkbox',
+        name: 'cloudServices',
+        message: '选择要包含的云服务 (使用空格键选择/取消):',
+        choices: [
+          { name: '阿里云短信服务 (AliSMS)', value: 'aliSms' },
+          { name: '阿里云对象存储服务 (AliOSS)', value: 'aliOss' }
+        ]
       }
     ]);
     
-    // 是否包含阿里云对象存储服务
-    const { includeAliOss } = await inquirer.prompt<{ includeAliOss: boolean }>([
-      {
-        type: 'confirm',
-        name: 'includeAliOss',
-        message: '是否包含阿里云对象存储服务?',
-        default: false
-      }
-    ]);
+    // 确定是否包含各个服务
+    const includeAliSms = cloudServices.includes('aliSms');
+    const includeAliOss = cloudServices.includes('aliOss');
     
     return {
       orm,
