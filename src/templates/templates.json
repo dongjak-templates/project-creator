@@ -8,5 +8,8 @@
       }
     ],
     "default": "https://github.com/dongjak-templates/py-api-template.git"
+  },
+  "refine-admin": {
+    "default": "https://github.com/dongjak-templates/refine-admin-template.git"
   }
 }
