@@ -3,7 +3,7 @@ import fs from 'fs-extra';
 import path from 'path';
 import { execSync } from 'child_process';
 import { BaseTemplate, TemplateParams } from './Template.js';
-import templatesConfig from './templates.json' assert { type: 'json' };
+import templatesConfig from './templates.json'  with { type: 'json' }
 
 /**
  * Python Web模板参数

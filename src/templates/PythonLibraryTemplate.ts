@@ -3,7 +3,7 @@ import fs from 'fs-extra';
 import path from 'path';
 import { execSync } from 'child_process';
 import { BaseTemplate, TemplateParams } from './Template.js';
-import templatesConfig from './templates.json' assert { type: 'json' };
+import templatesConfig from './templates.json'  with { type: 'json' };
 
 /**
  * Python库模板参数
@@ -99,7 +99,7 @@ export class PythonLibraryTemplate extends BaseTemplate {
    */
   private async applyPatches(targetDir: string): Promise<void> {
     const patchesDir = path.join(targetDir, '.patches');
-    
+
     // 检查补丁目录是否存在
     if (!await fs.pathExists(patchesDir)) {
       console.log('没有找到补丁目录，跳过应用补丁步骤');
@@ -134,10 +134,10 @@ export class PythonLibraryTemplate extends BaseTemplate {
     for (const patchFile of patchFiles) {
       // 跳过已经应用的handlebars.patch
       if (patchFile === 'handlebars.patch') continue;
-      
+
       // 确保只处理.patch文件
       if (!patchFile.endsWith('.patch')) continue;
-      
+
       const patchPath = path.join(patchesDir, patchFile);
       console.log(`正在应用补丁: ${patchFile}...`);
       try {
@@ -147,10 +147,10 @@ export class PythonLibraryTemplate extends BaseTemplate {
         console.error(`应用补丁 ${patchFile} 失败: ${error}`);
       }
     }
-    
+
     // 删除.patches目录
     await fs.remove(patchesDir);
-    
+
     // 删除.git目录
     await fs.remove(path.join(targetDir, '.git'));
   }

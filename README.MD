@@ -35,3 +35,7 @@ npm version patch
 ```sh
 pnpm publish
 ```
+## 测试
+
+```sh
+npx 
