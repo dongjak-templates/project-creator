@@ -11,5 +11,8 @@
   },
   "refine-admin": {
     "default": "https://github.com/dongjak-templates/refine-admin-template.git"
+  },
+  "python-library": {
+    "default": "https://github.com/dongjak-templates/py-library-template.git"
   }
 }

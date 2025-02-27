@@ -25,7 +25,11 @@ graph TD
 ```sh
 pnpm run build
 ```
+## 更新版本
 
+```sh
+npm version patch
+```
 ## 发布
 
 ```sh
