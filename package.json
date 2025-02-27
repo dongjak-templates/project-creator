@@ -1,6 +1,6 @@
 {
   "name": "cruldra-create-project",
-  "version": "1.0.3",
+  "version": "1.0.4",
   "description": "快速生成不同类型的项目骨架",
   "type": "module",
   "main": "dist/index.js",
