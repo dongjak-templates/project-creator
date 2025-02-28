@@ -38,4 +38,5 @@ pnpm publish
 ## 测试
 
 ```sh
-npx 
+npx .
+```
