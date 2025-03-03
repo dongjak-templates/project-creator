@@ -90,7 +90,7 @@ export class DockerComposeTemplate extends BaseTemplate {
           name: 'selectedServices',
           message: '请选择要保留的服务 (空格选择/取消，回车确认):',
           choices: serviceChoices,
-          default: serviceNames, // 默认全选
+          default: [], // 默认不选中任何服务
           pageSize: 10
         }
       ] as any);
