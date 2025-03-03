@@ -21,7 +21,7 @@ interface EnvVarInfo {
  */
 interface DockerComposeTemplateParams extends TemplateParams {
   selectedServices: string[];
-  envVars: Record<string, string>;
+  envVars: EnvVarInfo[];
 }
 
 /**
@@ -166,16 +166,17 @@ export class DockerComposeTemplate extends BaseTemplate {
   /**
    * 询问用户缺少默认值的环境变量
    */
-  private async promptForMissingEnvVars(envVarInfos: EnvVarInfo[]): Promise<Record<string, string>> {
-    const result: Record<string, string> = {};
+  private async promptForMissingEnvVars(envVarInfos: EnvVarInfo[]): Promise<EnvVarInfo[]> {
+    const result: EnvVarInfo[] = [];
     
     // 收集所有需要询问的环境变量
     const questions: Question[] = [];
+    const envVarsToAsk: EnvVarInfo[] = [];
     
     for (const info of envVarInfos) {
       // 如果已经有默认值，直接使用
       if (info.value !== undefined) {
-        result[info.name] = info.value;
+        result.push(info);
         continue;
       }
       
@@ -186,6 +187,7 @@ export class DockerComposeTemplate extends BaseTemplate {
         message: `请输入环境变量 ${info.name} 的值${info.comment ? ` (${info.comment})` : ''}:`,
         default: ''
       });
+      envVarsToAsk.push(info);
     }
     
     // 如果有需要询问的环境变量，进行询问
@@ -193,8 +195,14 @@ export class DockerComposeTemplate extends BaseTemplate {
       console.log('请为以下环境变量提供值:');
       const answers = await inquirer.prompt<Record<string, string>>(questions as any);
       
-      // 合并答案
-      Object.assign(result, answers);
+      // 将用户输入的值添加到结果中
+      for (const info of envVarsToAsk) {
+        result.push({
+          name: info.name,
+          value: answers[info.name],
+          comment: info.comment
+        });
+      }
     }
     
     return result;
@@ -298,7 +306,7 @@ export class DockerComposeTemplate extends BaseTemplate {
   /**
    * 生成或更新.env文件
    */
-  private async generateEnvFile(targetDir: string, envVars: Record<string, string>): Promise<void> {
+  private async generateEnvFile(targetDir: string, envVars: EnvVarInfo[]): Promise<void> {
     const envFilePath = path.join(targetDir, '.env');
     
     // 准备.env文件内容
@@ -306,8 +314,14 @@ export class DockerComposeTemplate extends BaseTemplate {
     envContent += '# 此文件由项目生成器自动生成\n\n';
     
     // 添加环境变量
-    for (const [name, value] of Object.entries(envVars)) {
-      envContent += `${name}=${value}\n`;
+    for (const { name, value, comment } of envVars) {
+      if (value !== undefined) {
+        // 如果有注释，先添加注释
+        if (comment) {
+          envContent += `# ${comment}\n`;
+        }
+        envContent += `${name}=${value}\n`;
+      }
     }
     
     // 写入.env文件
