@@ -1,4 +1,5 @@
 import inquirer from 'inquirer';
+import type { Answers, Question } from 'inquirer';
 import fs from 'fs-extra';
 import path from 'path';
 import { execSync } from 'child_process';
@@ -7,10 +8,20 @@ import templatesConfig from './templates.json' with { type: 'json' };
 import yaml from 'js-yaml';
 
 /**
+ * 环境变量信息
+ */
+interface EnvVarInfo {
+  name: string;
+  comment?: string;
+  value?: string;
+}
+
+/**
  * Docker Compose模板参数
  */
 interface DockerComposeTemplateParams extends TemplateParams {
   selectedServices: string[];
+  envVars: Record<string, string>;
 }
 
 /**
@@ -82,19 +93,111 @@ export class DockerComposeTemplate extends BaseTemplate {
           default: serviceNames, // 默认全选
           pageSize: 10
         }
-      ]);
+      ] as any);
+      
+      // 提取选中服务的环境变量
+      const selectedServices = servicesAnswer.selectedServices;
+      // 读取.env文件中的默认值
+      const envFilePath = path.join(tempDir, '.env');
+      const envVarsFromFile = await this.readEnvFile(envFilePath);
+      // 询问用户缺少默认值的环境变量
+      const envVars = await this.promptForMissingEnvVars(envVarsFromFile);
       
       // 清理临时目录
       await fs.remove(tempDir);
       
       return {
-        selectedServices: servicesAnswer.selectedServices
+        selectedServices,
+        envVars
       };
     } catch (error) {
       // 确保清理临时目录
       await fs.remove(tempDir);
       throw error;
     }
+  }
+
+ 
+
+  /**
+   * 读取.env文件，提取环境变量和注释
+   */
+  private async readEnvFile(envFilePath: string): Promise<EnvVarInfo[]> {
+    const result: EnvVarInfo[] = [];
+    
+    // 读取.env文件内容
+    const content = await fs.readFile(envFilePath, 'utf8');
+    const lines = content.split('\n');
+    
+    let currentComment = '';
+    
+    // 逐行解析
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i].trim();
+      
+      // 处理注释行
+      if (line.startsWith('#')) {
+        currentComment = line.substring(1).trim();
+        continue;
+      }
+      
+      // 处理环境变量行
+      const matches = line.match(/^([A-Za-z0-9_]+)=(.*)$/);
+      if (matches) {
+        const name = matches[1];
+        const value = matches[2];
+        
+        // 存储环境变量及其注释
+        result.push({
+          name,
+          value: value || undefined,
+          comment: currentComment
+        });
+        
+        // 重置当前注释
+        currentComment = '';
+      }
+    }
+    
+    return result;
+  }
+ 
+
+  /**
+   * 询问用户缺少默认值的环境变量
+   */
+  private async promptForMissingEnvVars(envVarInfos: EnvVarInfo[]): Promise<Record<string, string>> {
+    const result: Record<string, string> = {};
+    
+    // 收集所有需要询问的环境变量
+    const questions: Question[] = [];
+    
+    for (const info of envVarInfos) {
+      // 如果已经有默认值，直接使用
+      if (info.value !== undefined) {
+        result[info.name] = info.value;
+        continue;
+      }
+      
+      // 否则，创建询问
+      questions.push({
+        type: 'input',
+        name: info.name,
+        message: `请输入环境变量 ${info.name} 的值${info.comment ? ` (${info.comment})` : ''}:`,
+        default: ''
+      });
+    }
+    
+    // 如果有需要询问的环境变量，进行询问
+    if (questions.length > 0) {
+      console.log('请为以下环境变量提供值:');
+      const answers = await inquirer.prompt<Record<string, string>>(questions as any);
+      
+      // 合并答案
+      Object.assign(result, answers);
+    }
+    
+    return result;
   }
 
   /**
@@ -109,7 +212,7 @@ export class DockerComposeTemplate extends BaseTemplate {
    * 初始化Docker Compose模板
    */
   async initialize(targetDir: string, projectName: string, params: DockerComposeTemplateParams): Promise<void> {
-    const { selectedServices } = params;
+    const { selectedServices, envVars } = params;
 
     // 获取模板仓库地址
     const templateRepo = this.getTemplateRepo();
@@ -130,6 +233,9 @@ export class DockerComposeTemplate extends BaseTemplate {
 
     // 处理docker-compose.yml文件，移除未选中的服务
     await this.processDockerComposeFile(targetDir, selectedServices);
+    
+    // 生成或更新.env文件
+    await this.generateEnvFile(targetDir, envVars);
 
     // 渲染所有模板文件
     console.log('正在渲染模板文件...');
@@ -187,6 +293,26 @@ export class DockerComposeTemplate extends BaseTemplate {
       console.error(`处理docker-compose.yml文件时出错: ${error}`);
       throw error;
     }
+  }
+
+  /**
+   * 生成或更新.env文件
+   */
+  private async generateEnvFile(targetDir: string, envVars: Record<string, string>): Promise<void> {
+    const envFilePath = path.join(targetDir, '.env');
+    
+    // 准备.env文件内容
+    let envContent = '# 环境变量配置文件\n';
+    envContent += '# 此文件由项目生成器自动生成\n\n';
+    
+    // 添加环境变量
+    for (const [name, value] of Object.entries(envVars)) {
+      envContent += `${name}=${value}\n`;
+    }
+    
+    // 写入.env文件
+    await fs.writeFile(envFilePath, envContent, 'utf8');
+    console.log('已生成.env文件');
   }
 
   /**
