@@ -14,5 +14,8 @@
   },
   "python-library": {
     "default": "https://github.com/dongjak-templates/py-library-template.git"
+  },
+  "docker-compose": {
+    "default": "https://github.com/dongjak-templates/docker-compose-template.git"
   }
 }
