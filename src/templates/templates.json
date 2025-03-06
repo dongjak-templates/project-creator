@@ -17,5 +17,8 @@
   },
   "docker-compose": {
     "default": "https://github.com/dongjak-templates/docker-compose-template.git"
+  },
+  "fastapi": {
+    "default": "https://github.com/dongjak-templates/fastapi-template.git"
   }
 }
